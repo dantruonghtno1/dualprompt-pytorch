@@ -65,7 +65,7 @@ def train_one_epoch(model: torch.nn.Module, original_model: torch.nn.Module,
 
         loss = criterion(logits, target) # base criterion (CrossEntropyLoss)
         if args.pull_constraint and 'reduce_sim' in output:
-            loss = loss - args.pull_constraint_coeff * output['reduce_sim']
+            loss = loss + args.pull_constraint_coeff * output['reduce_sim']
 
         acc1, acc5 = accuracy(logits, target, topk=(1, 5))
 
