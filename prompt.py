@@ -145,7 +145,6 @@ class EPrompt(nn.Module):
                 batched_key_norm = prompt_key_norm[:task_id]
                 # batch_key_norm : [task_id,768]
                 sim = x_embed_norm.squeeze() @ batched_key_norm
-                sim = torch.nn.softmax(sim, dim = -1)
                 # batch x task_id
                 mask = torch.ones_like(sim) 
                 mask[:, task_id] = mask[:, task_id] * -1 
@@ -155,7 +154,7 @@ class EPrompt(nn.Module):
 
 
             
-            out['reduce_sim'] = 10-torch.sum(sim)/x_embed.shape[0]
+            out['reduce_sim'] = torch.sum(sim)/x_embed.shape[0]
         else:
             # user prefix style
             if self.use_prefix_tune_for_e_prompt:
