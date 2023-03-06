@@ -90,10 +90,8 @@ class EPrompt(nn.Module):
             prompt_key_norm = self.l2_normalize(self.prompt_key, dim=-1) # Pool_size, C
             x_embed_norm = self.l2_normalize(x_embed_mean, dim=-1) # B, C
             
-
             similarity = torch.matmul(prompt_key_norm, x_embed_norm.t()) # pool_size, B or Pool_size, #class, B
             similarity = similarity.t() # B, pool_size
-
             (similarity_top_k, idx) = torch.topk(similarity, k=self.top_k, dim=1) # B, top_k
             out['similarity'] = similarity
 
@@ -109,17 +107,19 @@ class EPrompt(nn.Module):
                 major_prompt_id = prompt_id[major_idx] # top_k
                 # expand to batch
                 idx = major_prompt_id.expand(x_embed.shape[0], -1).contiguous() # B, top_k
-            
             if prompt_mask is not None:
                 idx = prompt_mask # B, top_k
             
             out['prompt_idx'] = idx
             if self.use_prefix_tune_for_e_prompt:
-                batched_prompt_raw = self.prompt[:,:,idx]  # num_layers, B, top_k, length, C
+                #self.prompt : num_layers x dual x pool_size x length x n_heads x 768//n_heads
+                batched_prompt_raw = self.prompt[:,:,idx]
+                # num_layers x dual x batch_size x 1 x length x n_heads x 768//n_heads 
                 num_layers, dual, batch_size, top_k, length, num_heads, heads_embed_dim = batched_prompt_raw.shape
                 batched_prompt = batched_prompt_raw.reshape(
                     num_layers, batch_size, dual, top_k * length, num_heads, heads_embed_dim
                 )
+                # batch_prompt : num_layers x batch_size x dual x length x n_heads x 768//n_heads (top_k = 1)
             else:
                 batched_prompt_raw = self.prompt[:,idx]
                 num_layers, batch_size, top_k, length, embed_dim = batched_prompt_raw.shape
@@ -128,17 +128,33 @@ class EPrompt(nn.Module):
                 )
 
             batched_key_norm = prompt_key_norm[idx] # B, top_k, C
-
-            out['selected_key'] = batched_key_norm
+            # b x 1 x 768 
+            out['selected_key'] = batched_key_norm 
             out['prompt_key_norm'] = prompt_key_norm
             out['x_embed_norm'] = x_embed_norm
 
             # Put pull_constraint loss calculation inside
             x_embed_norm = x_embed_norm.unsqueeze(1) # B, 1, C
-            sim = batched_key_norm * x_embed_norm # B, top_k, C
+            sim = batched_key_norm * x_embed_norm # B, top_k, C # b x 1 x 768 * b x 1 x 768
             reduce_sim = torch.sum(sim) / x_embed.shape[0] # Scalar
+
+
+            #######################our method##############################
+            if idx >= 1:
+                task_id = torch.max(idx).item()
+                batched_key_norm = prompt_key_norm[:task_id]
+                # batch_key_norm : [task_id,768]
+                sim = x_embed_norm.squeeze() @ batched_key_norm
+                # batch x task_id
+                mask = torch.ones_like(sim) 
+                mask[:, task_id] = mask[:, task_id] * -1 
+                sim = sim * mask
+
+
+
+
             
-            out['reduce_sim'] = reduce_sim
+            out['reduce_sim'] = 10-torch.sum(sim)/x_embed.shape[0]
         else:
             # user prefix style
             if self.use_prefix_tune_for_e_prompt:
