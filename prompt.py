@@ -140,8 +140,8 @@ class EPrompt(nn.Module):
 
 
             #######################our method##############################
-            if idx >= 1:
-                task_id = torch.max(idx).item()
+            task_id = torch.max(idx).item()
+            if task_id >= 1:
                 batched_key_norm = prompt_key_norm[:task_id]
                 # batch_key_norm : [task_id,768]
                 sim = x_embed_norm.squeeze() @ batched_key_norm
