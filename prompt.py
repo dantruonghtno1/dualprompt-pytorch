@@ -144,7 +144,7 @@ class EPrompt(nn.Module):
             if task_id >= 1:
                 batched_key_norm = prompt_key_norm[:task_id]
                 # batch_key_norm : [task_id,768]
-                sim = x_embed_norm.squeeze() @ batched_key_norm
+                sim = x_embed_norm.squeeze() @ batched_key_norm.t()
                 # batch x task_id
                 mask = torch.ones_like(sim) 
                 mask[:, task_id] = mask[:, task_id] * -1 
