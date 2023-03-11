@@ -23,6 +23,7 @@ import numpy as np
 
 from timm.utils import accuracy
 from timm.optim import create_optimizer
+from contrastiveLoss import supConLoss
 
 import utils
 
@@ -62,10 +63,10 @@ def train_one_epoch(model: torch.nn.Module, original_model: torch.nn.Module,
             not_mask = np.setdiff1d(np.arange(args.nb_classes), mask)
             not_mask = torch.tensor(not_mask, dtype=torch.int64).to(device)
             logits = logits.index_fill(dim=1, index=not_mask, value=float('-inf'))
-
+        contrasLoss = supConLoss(features = output['pre_logits'], labels = target)
         loss = criterion(logits, target) # base criterion (CrossEntropyLoss)
         if args.pull_constraint and 'reduce_sim' in output:
-            loss = loss + args.pull_constraint_coeff * output['reduce_sim']
+            loss = loss + args.pull_constraint_coeff * output['reduce_sim'] + contrasLoss
 
         acc1, acc5 = accuracy(logits, target, topk=(1, 5))
 
